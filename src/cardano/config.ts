@@ -39,7 +39,8 @@ const getBlockfrostUrl = (network: Network): string => {
 }
 
 // Default Dandelion endpoints
-const defaultGraphQLDandelion = 'https://graphql-api.mainnet.dandelion.link'
+//https://graphql-api.mainnet.dandelion.link'
+const defaultGraphQLDandelion = 'https://graphql.panl.org/''
 const defaultGraphQLTestnet = 'https://graphql.preview.lidonation.com/graphql'
 
 const defaultSubmitURIMainnet = [
