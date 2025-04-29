@@ -67,100 +67,102 @@ The easiest way to deploy your Next.js app is to use the [Vercel Platform](https
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
 
+# Deploying Round Table to Vercel: CORS Solutions
 
-# Resolving CORS Issues in Round Table
+When deploying Round Table to Vercel, you might encounter CORS issues with the Cardano GraphQL APIs. This guide provides several solutions tailored for Vercel deployment.
 
-When working with the Round Table application, you might encounter CORS (Cross-Origin Resource Sharing) issues when connecting to external APIs like Blockfrost or Dandelion. This guide explains how to resolve these issues.
+## Solution 1: Use Blockfrost with API Routes (Recommended)
 
-## Understanding the Problem
+The simplest and most reliable solution is to use Blockfrost through Next.js API routes, which handle CORS automatically:
 
-CORS errors like the following indicate that the browser is preventing your application from accessing a resource on another domain due to security restrictions:
+1. Create a Blockfrost account and get a project ID
+2. Add your project ID to Vercel environment variables
+3. Use the built-in `/api/blockfrost` route for all API calls
 
-```
-Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://graphql-api.mainnet.dandelion.link/. (Reason: CORS request did not succeed). Status code: (null).
-```
+### Setting up Environment Variables in Vercel
 
-Or SSL-related errors:
+1. Go to your project in the Vercel dashboard
+2. Navigate to **Settings** → **Environment Variables**
+3. Add these variables:
+   - **NEXT_PUBLIC_USE_BLOCKFROST**: `true`
+   - **NEXT_PUBLIC_BLOCKFROST_PROJECT_ID**: `your-project-id`
+   - **NEXT_PUBLIC_NETWORK**: `mainnet` (or `testnet`/`preview`)
 
-```
-POST https://graphql-api.mainnet.dandelion.link/ net::ERR_SSL_VERSION_OR_CIPHER_MISMATCH
-```
+### Using the Blockfrost API Route
 
-## Solutions
+The application includes a special API route that handles Blockfrost requests:
 
-### Option 1: Use Blockfrost with Project ID (Recommended)
-
-Blockfrost provides proper CORS headers, so it's the easiest solution:
-
-1. Create an account at [Blockfrost.io](https://blockfrost.io)
-2. Create a new project and get your Project ID
-3. Copy `.env.local.example` to `.env.local`
-4. Set these environment variables:
-   ```
-   NEXT_PUBLIC_USE_BLOCKFROST=true
-   NEXT_PUBLIC_BLOCKFROST_PROJECT_ID=your-project-id-here
-   ```
-
-### Option 2: Use the Built-in Proxy
-
-The application includes a proxy API route to bypass CORS issues:
-
-1. Make sure your server is running with the development environment
-2. The application will automatically use the proxy for Blockfrost requests
-3. For other APIs, modify the API calls to use `/api/proxy?target=YOUR_API_ENDPOINT`
-
-### Option 3: Run a Local Reverse Proxy (Development)
-
-If you prefer using non-Blockfrost APIs directly:
-
-1. Install and run a CORS proxy like `local-cors-proxy`:
-   ```bash
-   npm install -g local-cors-proxy
-   lcp --proxyUrl https://graphql-api.mainnet.dandelion.link
-   ```
-2. This will start a proxy at `http://localhost:8010/proxy`
-3. Update your `.env.local`:
-   ```
-   NEXT_PUBLIC_USE_BLOCKFROST=false
-   NEXT_PUBLIC_GRAPHQL=http://localhost:8010/proxy
-   ```
-
-### Option 4: Production Deployment with Proper CORS Configuration
-
-For production, configure your web server (Nginx, Apache, etc.) to proxy requests:
-
-#### Nginx Example:
-```nginx
-location /cardano-api/ {
-    proxy_pass https://graphql-api.mainnet.dandelion.link/;
-    proxy_set_header Host graphql-api.mainnet.dandelion.link;
-    proxy_set_header Origin '';
-    add_header Access-Control-Allow-Origin '*';
-    add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
-    add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
-    
-    # Handle preflight requests
-    if ($request_method = 'OPTIONS') {
-        add_header Access-Control-Allow-Origin '*';
-        add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
-        add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
-        add_header Access-Control-Max-Age 1728000;
-        add_header Content-Type 'text/plain charset=UTF-8';
-        add_header Content-Length 0;
-        return 204;
-    }
-}
+```javascript
+// Example of using the API route in your code
+const response = await fetch(`/api/blockfrost/graphql?network=mainnet`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    query: YOUR_GRAPHQL_QUERY,
+    variables: YOUR_VARIABLES
+  }),
+});
 ```
 
-## Troubleshooting SSL Issues
+## Solution 2: Use the Apollo Client with Custom Fetch
 
-If you encounter `ERR_SSL_VERSION_OR_CIPHER_MISMATCH`, it might be because:
+The application's Apollo Client is configured to work with Blockfrost by:
 
-1. Your Node.js version is outdated - update to the latest LTS version
-2. There's a protocol mismatch - try using the built-in proxy
-3. Network restrictions - try connecting through a different network
+1. Detecting when Blockfrost is being used
+2. Adding your project ID to all requests automatically
+3. Handling CORS issues internally
 
-## Environment Variables Reference
+No additional configuration is needed if you've set the environment variables correctly.
 
-See the `.env.local.example` file for all available environment variables to configure your API connections.
+## Solution 3: Use the CORS Proxy API Route
+
+For APIs other than Blockfrost, use the built-in CORS proxy:
+
+```javascript
+const encodedTarget = encodeURIComponent('https://graphql-api.mainnet.dandelion.link');
+const response = await fetch(`/api/proxy?target=${encodedTarget}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    query: YOUR_GRAPHQL_QUERY,
+    variables: YOUR_VARIABLES
+  }),
+});
+```
+
+## Solution 4: Configure Middleware (Advanced)
+
+The application includes Next.js middleware that:
+- Adds CORS headers to all API responses
+- Handles preflight requests automatically
+- Works with all Vercel regions
+
+No additional configuration required - this works out of the box!
+
+## Troubleshooting Vercel Deployments
+
+If you encounter CORS issues despite using these solutions:
+
+1. **Check Vercel Logs**: Go to your deployment → View Logs
+2. **Verify Environment Variables**: Make sure they're correctly set in Vercel
+3. **Try Different Regions**: Sometimes CORS issues can be region-specific
+4. **Contact Blockfrost Support**: If issues persist with Blockfrost APIs
+
+## For Local Development
+
+When developing locally:
+
+1. Create a `.env.local` file with the same environment variables
+2. Run the development server with `npm run dev` or `yarn dev`
+3. All CORS solutions will work the same way locally
+
+## Further Resources
+
+- [Vercel Serverless Functions Documentation](https://vercel.com/docs/concepts/functions/serverless-functions)
+- [Next.js API Routes Documentation](https://nextjs.org/docs/api-routes/introduction)
+- [Blockfrost API Documentation](https://docs.blockfrost.io/)
 

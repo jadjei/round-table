@@ -1,6 +1,5 @@
 // src/pages/api/proxy.ts
 import type { NextApiRequest, NextApiResponse } from 'next'
-import fetch from 'node-fetch'
 
 export default async function handler(
   req: NextApiRequest,
@@ -22,7 +21,7 @@ export default async function handler(
     const targetUrl = decodeURIComponent(target)
     const projectId = process.env.NEXT_PUBLIC_BLOCKFROST_PROJECT_ID || ''
     
-    // Forward the request to the target API
+    // Forward the request to the target API using native fetch
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -45,6 +44,6 @@ export default async function handler(
     res.status(response.status).json(data)
   } catch (error) {
     console.error('Proxy error:', error)
-    res.status(500).json({ message: 'Error forwarding request' })
+    res.status(500).json({ message: 'Error forwarding request', details: String(error) })
   }
 }

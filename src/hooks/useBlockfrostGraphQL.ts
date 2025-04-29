@@ -78,16 +78,22 @@ export function useBlockfrostGraphQL<T>(options: GraphQLOptions): GraphQLResult<
   };
 
   useEffect(() => {
-    fetchData();
+    // Create a stable reference to the current fetchData function
+    const currentFetchData = fetchData;
+    
+    // Call it immediately
+    currentFetchData();
 
+    // Set up polling if needed
     if (pollInterval) {
       const interval = setInterval(() => {
-        fetchData();
+        currentFetchData();
       }, pollInterval);
 
       return () => clearInterval(interval);
     }
-  }, [query, JSON.stringify(variables), skip, config.queryAPI.URI]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, JSON.stringify(variables), skip, config.queryAPI.URI, pollInterval]);
 
   return {
     data,
