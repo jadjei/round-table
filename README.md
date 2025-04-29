@@ -66,3 +66,101 @@ Then visit http://localhost:3000/
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+
+
+# Resolving CORS Issues in Round Table
+
+When working with the Round Table application, you might encounter CORS (Cross-Origin Resource Sharing) issues when connecting to external APIs like Blockfrost or Dandelion. This guide explains how to resolve these issues.
+
+## Understanding the Problem
+
+CORS errors like the following indicate that the browser is preventing your application from accessing a resource on another domain due to security restrictions:
+
+```
+Cross-Origin Request Blocked: The Same Origin Policy disallows reading the remote resource at https://graphql-api.mainnet.dandelion.link/. (Reason: CORS request did not succeed). Status code: (null).
+```
+
+Or SSL-related errors:
+
+```
+POST https://graphql-api.mainnet.dandelion.link/ net::ERR_SSL_VERSION_OR_CIPHER_MISMATCH
+```
+
+## Solutions
+
+### Option 1: Use Blockfrost with Project ID (Recommended)
+
+Blockfrost provides proper CORS headers, so it's the easiest solution:
+
+1. Create an account at [Blockfrost.io](https://blockfrost.io)
+2. Create a new project and get your Project ID
+3. Copy `.env.local.example` to `.env.local`
+4. Set these environment variables:
+   ```
+   NEXT_PUBLIC_USE_BLOCKFROST=true
+   NEXT_PUBLIC_BLOCKFROST_PROJECT_ID=your-project-id-here
+   ```
+
+### Option 2: Use the Built-in Proxy
+
+The application includes a proxy API route to bypass CORS issues:
+
+1. Make sure your server is running with the development environment
+2. The application will automatically use the proxy for Blockfrost requests
+3. For other APIs, modify the API calls to use `/api/proxy?target=YOUR_API_ENDPOINT`
+
+### Option 3: Run a Local Reverse Proxy (Development)
+
+If you prefer using non-Blockfrost APIs directly:
+
+1. Install and run a CORS proxy like `local-cors-proxy`:
+   ```bash
+   npm install -g local-cors-proxy
+   lcp --proxyUrl https://graphql-api.mainnet.dandelion.link
+   ```
+2. This will start a proxy at `http://localhost:8010/proxy`
+3. Update your `.env.local`:
+   ```
+   NEXT_PUBLIC_USE_BLOCKFROST=false
+   NEXT_PUBLIC_GRAPHQL=http://localhost:8010/proxy
+   ```
+
+### Option 4: Production Deployment with Proper CORS Configuration
+
+For production, configure your web server (Nginx, Apache, etc.) to proxy requests:
+
+#### Nginx Example:
+```nginx
+location /cardano-api/ {
+    proxy_pass https://graphql-api.mainnet.dandelion.link/;
+    proxy_set_header Host graphql-api.mainnet.dandelion.link;
+    proxy_set_header Origin '';
+    add_header Access-Control-Allow-Origin '*';
+    add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
+    add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
+    
+    # Handle preflight requests
+    if ($request_method = 'OPTIONS') {
+        add_header Access-Control-Allow-Origin '*';
+        add_header Access-Control-Allow-Methods 'GET, POST, OPTIONS';
+        add_header Access-Control-Allow-Headers 'DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range';
+        add_header Access-Control-Max-Age 1728000;
+        add_header Content-Type 'text/plain charset=UTF-8';
+        add_header Content-Length 0;
+        return 204;
+    }
+}
+```
+
+## Troubleshooting SSL Issues
+
+If you encounter `ERR_SSL_VERSION_OR_CIPHER_MISMATCH`, it might be because:
+
+1. Your Node.js version is outdated - update to the latest LTS version
+2. There's a protocol mismatch - try using the built-in proxy
+3. Network restrictions - try connecting through a different network
+
+## Environment Variables Reference
+
+See the `.env.local.example` file for all available environment variables to configure your API connections.
+

@@ -1,4 +1,4 @@
-import { ApolloClient, gql, InMemoryCache, useQuery } from '@apollo/client'
+import { ApolloClient, gql, InMemoryCache, useQuery, HttpLink, ApolloLink, concat } from '@apollo/client'
 import type { QueryHookOptions, QueryResult } from '@apollo/client'
 import type { Cardano, PaymentAddress, TransactionOutput, Reward_Aggregate, Withdrawal_Aggregate, StakeRegistration_Aggregate, StakeDeregistration_Aggregate, Delegation, StakePool, Transaction } from '@cardano-graphql/client-ts/api'
 import { Config } from './config'
@@ -51,16 +51,58 @@ const getRecipientFromTransactionOutput = (output: TransactionOutput): Recipient
 
 const getBalanceByUTxOs = (utxos: TransactionOutput[]): Value => sumValues(utxos.map(getValueFromTransactionOutput))
 
-const createApolloClient = (config: Config) => new ApolloClient({
-  uri: config.queryAPI.URI,
-  cache: new InMemoryCache({
-    typePolicies: {
-      PaymentAddress: {
-        keyFields: ['address']
-      }
-    }
-  })
-})
+const createApolloClient = (config: Config) => {
+  // Check if we're connecting to Blockfrost
+  const isBlockfrost = config.queryAPI.URI.includes('blockfrost.io');
+  
+  // Create an HTTP link with proper configuration
+  const httpLink = new HttpLink({
+    uri: config.queryAPI.URI
+  });
+
+  // If using Blockfrost, add the authentication header
+  if (isBlockfrost) {
+    // Create auth middleware for Blockfrost
+    const authMiddleware = new ApolloLink((operation, forward) => {
+      // Get the project ID from environment variable or use a default/placeholder
+      const projectId = process.env.NEXT_PUBLIC_BLOCKFROST_PROJECT_ID || '';
+      
+      // Add the headers
+      operation.setContext({
+        headers: {
+          'project_id': projectId
+        }
+      });
+      
+      return forward(operation);
+    });
+
+    // Return Apollo client with the auth middleware
+    return new ApolloClient({
+      link: concat(authMiddleware, httpLink),
+      cache: new InMemoryCache({
+        typePolicies: {
+          PaymentAddress: {
+            keyFields: ['address']
+          }
+        }
+      })
+    });
+  } else {
+    // For non-Blockfrost endpoints, use the standard configuration
+    return new ApolloClient({
+      uri: config.queryAPI.URI,
+      cache: new InMemoryCache({
+        typePolicies: {
+          PaymentAddress: {
+            keyFields: ['address']
+          }
+        }
+      })
+    });
+  }
+}
+
 
 type Query<D, V> = (options: QueryHookOptions<D, V>) => QueryResult<D, V>;
 

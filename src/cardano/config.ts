@@ -28,10 +28,20 @@ type Config = {
 
 const isMainnet = (config: Config) => config.network === 'mainnet'
 
-//const defaultGraphQLMainnet = 'https://graphql-api.mainnet.dandelion.link'
-const defaultGraphQLMainnet = 'https://cardano-mainnet.blockfrost.io/api/v0/'
+// Update Blockfrost endpoints with appropriate network
+const getBlockfrostUrl = (network: Network): string => {
+  switch (network) {
+    case 'mainnet': return 'https://cardano-mainnet.blockfrost.io/api/v0/graphql'
+    case 'testnet': return 'https://cardano-testnet.blockfrost.io/api/v0/graphql'
+    case 'preview': return 'https://cardano-preview.blockfrost.io/api/v0/graphql'
+    default: return 'https://cardano-mainnet.blockfrost.io/api/v0/graphql'
+  }
+}
 
+// Default Dandelion endpoints
+const defaultGraphQLDandelion = 'https://graphql-api.mainnet.dandelion.link'
 const defaultGraphQLTestnet = 'https://graphql.preview.lidonation.com/graphql'
+
 const defaultSubmitURIMainnet = [
   'https://adao.panl.org',
   'https://submit-api.apexpool.info/api/submit/tx'
@@ -45,7 +55,7 @@ const defaultSMASHTestnet = 'https://preview-smash.panl.org'
 
 const defaultConfig: Config = {
   network: 'mainnet',
-  queryAPI: { type: 'graphql', URI: defaultGraphQLMainnet },
+  queryAPI: { type: 'graphql', URI: getBlockfrostUrl('mainnet') },
   submitAPI: defaultSubmitURIMainnet,
   SMASH: defaultSMASHMainnet,
   gunPeers: []
@@ -53,7 +63,15 @@ const defaultConfig: Config = {
 
 const createConfig = (): Config => {
   const network = parseNetwork(process.env.NEXT_PUBLIC_NETWORK ?? 'mainnet')
-  const defaultGraphQL = network === 'mainnet' ? defaultGraphQLMainnet : defaultGraphQLTestnet
+
+  // Determine whether to use Blockfrost or Dandelion
+  const useBlockfrost = process.env.NEXT_PUBLIC_USE_BLOCKFROST === 'true'
+  
+  // Set appropriate default GraphQL endpoint based on configuration
+  const defaultGraphQL = useBlockfrost 
+    ? getBlockfrostUrl(network) 
+    : (network === 'mainnet' ? defaultGraphQLDandelion : defaultGraphQLTestnet)
+
   const defaultSubmitURI = network === 'mainnet' ? defaultSubmitURIMainnet : defaultSubmitURITestnet
   const grapQLURI = process.env.NEXT_PUBLIC_GRAPHQL ?? defaultGraphQL
   const submitEnv = process.env.NEXT_PUBLIC_SUBMIT
