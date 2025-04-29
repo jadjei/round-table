@@ -28,7 +28,7 @@ type Config = {
 
 const isMainnet = (config: Config) => config.network === 'mainnet'
 
-const defaultGraphQLMainnet = 'https://d.graphql-api.mainnet.dandelion.link'
+const defaultGraphQLMainnet = 'https://graphql-api.mainnet.dandelion.link'
 const defaultGraphQLTestnet = 'https://graphql.preview.lidonation.com/graphql'
 const defaultSubmitURIMainnet = [
   'https://adao.panl.org',
